@@ -39,7 +39,7 @@ public:
         std::unique_lock<std::mutex> lock(mutex_);
         not_full_.wait(lock, [&] {
             return queue_.size() < max_size_ || finished_;
-        });
+            });
         if (finished_) return false;
         queue_.push(task);
         not_empty_.notify_one();
@@ -50,7 +50,7 @@ public:
         std::unique_lock<std::mutex> lock(mutex_);
         not_empty_.wait(lock, [&] {
             return !queue_.empty() || finished_;
-        });
+            });
         if (queue_.empty()) return false;
         task = queue_.front();
         queue_.pop();
@@ -85,11 +85,11 @@ void brighten(Pixel& p, int value) {
 }
 
 void processBlock(std::vector<Pixel>& input,
-                  std::vector<Pixel>& output,
-                  int width,
-                  int height,
-                  int mode,
-                  Task task) {
+    std::vector<Pixel>& output,
+    int width,
+    int height,
+    int mode,
+    Task task) {
 
     for (int y = task.start_row; y < task.end_row; ++y) {
         for (int x = 0; x < width; ++x) {
@@ -105,11 +105,11 @@ void processBlock(std::vector<Pixel>& input,
 }
 
 void consumer(BlockingQueue& queue,
-              std::vector<Pixel>& input,
-              std::vector<Pixel>& output,
-              int width,
-              int height,
-              int mode) {
+    std::vector<Pixel>& input,
+    std::vector<Pixel>& output,
+    int width,
+    int height,
+    int mode) {
 
     Task task;
     while (queue.pop(task)) {
@@ -118,11 +118,11 @@ void consumer(BlockingQueue& queue,
 }
 
 long long parallelProcess(std::vector<Pixel>& input,
-                          std::vector<Pixel>& output,
-                          int width,
-                          int height,
-                          int mode,
-                          int num_threads) {
+    std::vector<Pixel>& output,
+    int width,
+    int height,
+    int mode,
+    int num_threads) {
 
     BlockingQueue queue(50);
     std::vector<std::thread> workers;
@@ -131,16 +131,16 @@ long long parallelProcess(std::vector<Pixel>& input,
 
     for (int i = 0; i < num_threads; ++i)
         workers.emplace_back(consumer,
-                             std::ref(queue),
-                             std::ref(input),
-                             std::ref(output),
-                             width,
-                             height,
-                             mode);
+            std::ref(queue),
+            std::ref(input),
+            std::ref(output),
+            width,
+            height,
+            mode);
 
     const int BLOCK_SIZE = 32;
     for (int y = 0; y < height; y += BLOCK_SIZE)
-        queue.push({y, std::min(y + BLOCK_SIZE, height)});
+        queue.push({ y, std::min(y + BLOCK_SIZE, height) });
 
     queue.finish();
 
@@ -153,11 +153,11 @@ long long parallelProcess(std::vector<Pixel>& input,
 }
 
 long long singleThreadProcess(std::vector<Pixel>& input,
-                              std::vector<Pixel>& output,
-                              int width,
-                              int height,
-                              int mode) {
-    
+    std::vector<Pixel>& output,
+    int width,
+    int height,
+    int mode) {
+
 
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -166,14 +166,15 @@ long long singleThreadProcess(std::vector<Pixel>& input,
             Pixel p = input[y * width + x];
 
             if (mode == 1) invert(p);
-            else if (mode == 2) brighten(p, 40);
-            else if (mode == 3) grayscale(p);
+            else if (mode == 3) brighten(p, 40);
+            else if (mode == 4) grayscale(p);
 
             output[y * width + x] = p;
         }
     }
 
     auto end = std::chrono::high_resolution_clock::now();
+
 
     return std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 }
@@ -208,12 +209,42 @@ int main() {
     stbi_image_free(data);
 
     int mode;
-    std::cout << "1-Invert 3-Brighten 4-Grayscale: ";
-    std::cin >> mode;
+    std::cout << "1 - Invert\n2 - Brighten\n3 - Grayscale\n";
+    std::cout << "Select mode: ";
+
+    while (true) {
+        if (!(std::cin >> mode)) {
+            std::cout << "Invalid input. Please enter a number.\n";
+            std::cin.clear();
+            std::cin.ignore(10000, '\n');
+            continue;
+        }
+
+        if (mode >= 1 && mode <= 3) break;
+
+        std::cout << "Mode must be 1, 2 or 3. Try again: ";
+    }
 
     int threads;
-    std::cout << "Enter number of threads: ";
-    std::cin >> threads;
+    unsigned int max_threads = std::thread::hardware_concurrency();
+    if (max_threads == 0) max_threads = 8; // fallback
+
+    std::cout << "Enter number of threads (1 - " << max_threads << "): ";
+
+    while (true) {
+        if (!(std::cin >> threads)) {
+            std::cout << "Invalid input. Please enter a number.\n";
+            std::cin.clear();
+            std::cin.ignore(10000, '\n');
+            continue;
+        }
+
+        if (threads >= 1 && threads <= (int)max_threads)
+            break;
+
+        std::cout << "Threads must be between 1 and "
+            << max_threads << ". Try again: ";
+    }
 
     long long single_time =
         singleThreadProcess(input, output, width, height, mode);
@@ -226,17 +257,18 @@ int main() {
 
     if (parallel_time > 0)
         std::cout << "Speedup: "
-                  << (double)single_time / parallel_time
-                  << "x\n";
+        << (double)single_time / parallel_time
+        << "x\n";
 
     std::string output_filename;
     std::cout << "\nEnter output filename (PNG recommended): ";
     std::cin >> output_filename;
 
-    if (stbi_write_png(output_filename.c_str(), width, height, 3, 
-                       output.data(), width * 3)) {
+    if (stbi_write_png(output_filename.c_str(), width, height, 3,
+        output.data(), width * 3)) {
         std::cout << "Image saved successfully as PNG\n";
-    } else {
+    }
+    else {
         std::cout << "Failed to save image\n";
     }
 
