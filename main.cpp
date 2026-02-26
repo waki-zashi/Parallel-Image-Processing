@@ -166,8 +166,8 @@ long long singleThreadProcess(std::vector<Pixel>& input,
             Pixel p = input[y * width + x];
 
             if (mode == 1) invert(p);
-            else if (mode == 3) brighten(p, 40);
-            else if (mode == 4) grayscale(p);
+            else if (mode == 2) brighten(p, 40);
+            else if (mode == 3) grayscale(p);
 
             output[y * width + x] = p;
         }
